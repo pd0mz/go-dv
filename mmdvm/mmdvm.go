@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pd0mz/go-dv"
 	"github.com/tarm/serial"
 )
 
@@ -82,7 +83,7 @@ var (
 )
 
 // The package logger
-var logger = *log.Logger
+var logger *log.Logger
 
 // States
 const (
@@ -134,7 +135,7 @@ type Status struct {
 type Modem struct {
 	Config   *serial.Config
 	Timeout  time.Duration
-	Callback map[uint8]modem.ModemDataFunc
+	Callback map[uint8]dv.ModemDataFunc
 
 	port     *serial.Port
 	callback map[uint8]chan []byte
@@ -142,18 +143,23 @@ type Modem struct {
 	version  int
 }
 
-func New(config *serial.Config) (*Modem, error) {
-	var err error
-
+func New(config *serial.Config) *Modem {
 	m := &Modem{
 		Config:   config,
-		Callback: make(map[uint8]modem.ModemDataFunc),
+		Callback: make(map[uint8]dv.ModemDataFunc),
 		Timeout:  DefaultTimeout,
 		callback: make(map[uint8]chan []byte),
 	}
 	m.Config.Baud = Baud
+	return m
+}
 
-	return m, nil
+func (m *Modem) Close() error {
+	if !m.running {
+		return nil
+	}
+	m.running = false
+	return m.port.Close()
 }
 
 func (m *Modem) Run() error {
@@ -222,7 +228,7 @@ func (m *Modem) Run() error {
 
 		// Extend the receive buffer with the specified length
 		data = append(data, make([]byte, data[1]-2)...)
-		if _, err = m.Port.Read(data[2:]); err != nil {
+		if _, err = m.port.Read(data[2:]); err != nil {
 			return err
 		}
 
@@ -337,33 +343,42 @@ func (m *Modem) sendAndWaitForACK(body []byte, t time.Duration) error {
 		return fmt.Errorf("mmdvm: received NAK for unknown reason %#02x", data[4])
 
 	default:
-		return m.errUnexpected(got, ACK)
+		return m.errUnexpected(data[2], ACK)
 	}
+}
+
+// Modes reports what modes are supported by the modem
+func (m *Modem) Modes() uint8 {
+	data, err := m.sendAndWait([]byte{GetStatus}, m.Timeout)
+	if err != nil || len(data) != 10 {
+		return 0
+	}
+	return data[3]
 }
 
 // SendDStarHeader sends a D-Star header, if there is an error it will be returned immediately, if the header was received correctly, no feedback will be provided
 func (m *Modem) SendDStarHeader(head []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{DStarHeader}, head...), t)
+	return m.sendAndWaitForACK(append([]byte{DStarHeader}, head...), timeout)
 }
 
 // SendDStarData sends D-Star data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
 func (m *Modem) SendDStarData(data []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{DStarData}, data...), t)
+	return m.sendAndWaitForACK(append([]byte{DStarData}, data...), timeout)
 }
 
 // SendDStarEOT sends a D-Star End Of Transmission, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
 func (m *Modem) SendDStarEOT(timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{DStarEOT}, data...), t)
+	return m.sendAndWaitForACK([]byte{DStarEOT}, timeout)
 }
 
 // SendDMRData sends DMR data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
 func (m *Modem) SendDMRData(data []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{DMRData}, data...), t)
+	return m.sendAndWaitForACK(append([]byte{DMRData}, data...), timeout)
 }
 
 // SendSystemFusionData sends System Fusion data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
 func (m *Modem) SendSystemFusionData(data []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{SystemFusionData}, data...), t)
+	return m.sendAndWaitForACK(append([]byte{SystemFusionData}, data...), timeout)
 }
 
 // SetConfig is used to inform the modem about parameters relevant to its operation
@@ -414,19 +429,19 @@ func (m *Modem) Version() int {
 	return m.version
 }
 
-func (m *Modem) SetDStarHeaderFunc(f ModemDataFunc) {
+func (m *Modem) SetDStarHeaderFunc(f dv.ModemDataFunc) {
 	m.Callback[DStarHeader] = f
 }
 
-func (m *Modem) SetDStarDataFunc(f ModemDataFunc) {
+func (m *Modem) SetDStarDataFunc(f dv.ModemDataFunc) {
 	m.Callback[DStarData] = f
 }
 
-func (m *Modem) SetDMRDataFunc(f ModemDataFunc) {
+func (m *Modem) SetDMRDataFunc(f dv.ModemDataFunc) {
 	m.Callback[DMRData] = f
 }
 
-func (m *Modem) SetSystemFusionDataFunc(f ModemDataFunc) {
+func (m *Modem) SetSystemFusionDataFunc(f dv.ModemDataFunc) {
 	m.Callback[SystemFusionData] = f
 }
 
