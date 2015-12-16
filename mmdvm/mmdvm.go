@@ -12,6 +12,14 @@ import (
 	"github.com/tarm/serial"
 )
 
+const (
+	// Baud rate for the MMDVM modem is 115200 baud.
+	Baud = 115200
+
+	// DefaultTimeout is the default timeout for all modem commands.
+	DefaultTimeout = time.Second * 10
+)
+
 // Command and response bytes.
 const (
 	GetVersion         uint8 = 0x00
@@ -64,9 +72,6 @@ var (
 		ACK:                "ACK",
 		NAK:                "NAK",
 	}
-
-	// DefaultTimeout is the default timeout for all modem commands.
-	DefaultTimeout = time.Second * 10
 )
 
 // Errors.
@@ -110,9 +115,6 @@ const (
 	InvertTXAudio
 	InvertTransmitOutput
 )
-
-// Baud rate for the MMDVM modem is 115200 baud.
-const Baud = 115200
 
 // Config holds the information retrieved by a Get Config command or sent by a Set Config command.
 type Config struct {
