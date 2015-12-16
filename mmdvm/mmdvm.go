@@ -334,6 +334,7 @@ func (m *Modem) sendAndWait(body []byte, t time.Duration) ([]byte, error) {
 	return nil, ErrTimeout
 }
 
+// sendAndWaitForACK sends the command and waits for an ACK, there is an error returns if anything else is returned.
 func (m *Modem) sendAndWaitForACK(body []byte, t time.Duration) error {
 	data, err := m.sendAndWait(body, t)
 	if err != nil {
@@ -355,6 +356,25 @@ func (m *Modem) sendAndWaitForACK(body []byte, t time.Duration) error {
 	}
 }
 
+// sendAndWaitForNAK sends the command and waits for a NAK, there is no error returned if there is a timeout.
+func (m *Modem) sendAndWaitForNAK(body []byte, t time.Duration) error {
+	data, err := m.sendAndWait(body, t)
+	if err == ErrTimeout {
+		return nil
+	}
+
+	switch data[2] {
+	case NAK:
+		if err, ok := nakError[data[4]]; ok {
+			return err
+		}
+		return fmt.Errorf("mmdvm: received NAK for unknown reason %#02x", data[4])
+
+	default:
+		return m.errUnexpected(data[2], NAK)
+	}
+}
+
 // Modes reports what modes are supported by the modem
 func (m *Modem) Modes() uint8 {
 	data, err := m.sendAndWait([]byte{GetStatus}, m.Timeout)
@@ -364,34 +384,34 @@ func (m *Modem) Modes() uint8 {
 	return data[3]
 }
 
-// SendDStarHeader sends a D-Star header, if there is an error it will be returned immediately, if the header was received correctly, no feedback will be provided
+// SendDStarHeader sends a D-Star header, if there is an error it will be returned immediately, if the header was received correctly, no feedback will be provided.
 func (m *Modem) SendDStarHeader(head []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{DStarHeader}, head...), timeout)
+	return m.sendAndWaitForNAK(append([]byte{DStarHeader}, head...), timeout)
 }
 
-// SendDStarData sends D-Star data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
+// SendDStarData sends D-Star data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided.
 func (m *Modem) SendDStarData(data []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{DStarData}, data...), timeout)
+	return m.sendAndWaitForNAK(append([]byte{DStarData}, data...), timeout)
 }
 
-// SendDStarEOT sends a D-Star End Of Transmission, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
+// SendDStarEOT sends a D-Star End Of Transmission, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided.
 func (m *Modem) SendDStarEOT(timeout time.Duration) error {
-	return m.sendAndWaitForACK([]byte{DStarEOT}, timeout)
+	return m.sendAndWaitForNAK([]byte{DStarEOT}, timeout)
 }
 
-// SendDMRData sends DMR data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
+// SendDMRData sends DMR data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided.
 func (m *Modem) SendDMRData(data []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{DMRData}, data...), timeout)
+	return m.sendAndWaitForNAK(append([]byte{DMRData}, data...), timeout)
 }
 
-// SendSystemFusionData sends System Fusion data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided
+// SendSystemFusionData sends System Fusion data, if there is an error it will be returned immediately, if the data was received correctly, no feedback will be provided.
 func (m *Modem) SendSystemFusionData(data []byte, timeout time.Duration) error {
-	return m.sendAndWaitForACK(append([]byte{SystemFusionData}, data...), timeout)
+	return m.sendAndWaitForNAK(append([]byte{SystemFusionData}, data...), timeout)
 }
 
-// SetConfig is used to inform the modem about parameters relevant to its operation
+// SetConfig is used to inform the modem about parameters relevant to its operation.
 func (m *Modem) SetConfig(c Config) error {
-	return m.sendAndWaitForACK([]byte{
+	return m.sendAndWaitForNAK([]byte{
 		SetConfig,
 		c.Inversion,
 		c.Modes,
