@@ -12,6 +12,7 @@ import (
 	"github.com/tarm/serial"
 )
 
+// Command and response bytes.
 const (
 	GetVersion         uint8 = 0x00
 	GetStatus          uint8 = 0x01
@@ -33,7 +34,7 @@ const (
 	FrameStart         uint8 = 0xe0
 )
 
-// NAK reasons
+// NAK reasons.
 const (
 	InvalidCommand uint8 = iota + 1
 	WrongMode
@@ -43,6 +44,7 @@ const (
 )
 
 var (
+	// CommandName is a map of command byte to string.
 	CommandName = map[uint8]string{
 		GetVersion:         "get version",
 		GetStatus:          "get status",
@@ -62,10 +64,12 @@ var (
 		ACK:                "ACK",
 		NAK:                "NAK",
 	}
+
+	// DefaultTimeout is the default timeout for all modem commands.
 	DefaultTimeout = time.Second * 10
 )
 
-// Errors
+// Errors.
 var (
 	ErrTimeout              = errors.New("mmdvm: timeout waiting for reply")
 	ErrInvalidCommand       = errors.New("mmdvm: invalid command")
@@ -82,10 +86,10 @@ var (
 	}
 )
 
-// The package logger
+// The package logger.
 var logger *log.Logger
 
-// States
+// States.
 const (
 	StateIdle uint8 = iota
 	StateDStar
@@ -94,20 +98,20 @@ const (
 	StateCalibration uint8 = 99
 )
 
-// Flags
+// Flags.
 const (
 	TXOn        uint8 = 0x01
 	ADCOverflow uint8 = 0x02
 )
 
-// Inversions
+// Inversions.
 const (
 	InvertRXAudio uint8 = 1 << iota
 	InvertTXAudio
 	InvertTransmitOutput
 )
 
-// Fixed baudrate for the MMDVM modem is 115k2
+// Baud rate for the MMDVM modem is 115200 baud.
 const Baud = 115200
 
 // Config holds the information retrieved by a Get Config command or sent by a Set Config command.
@@ -132,6 +136,7 @@ type Status struct {
 	SystemFusionBufferSize uint8
 }
 
+// Modem implements the MMDVM modem.
 type Modem struct {
 	Config   *serial.Config
 	Timeout  time.Duration
@@ -143,6 +148,7 @@ type Modem struct {
 	version  int
 }
 
+// New sets up a new MMDVM modem over a serial port.
 func New(config *serial.Config) *Modem {
 	m := &Modem{
 		Config:   config,
@@ -154,6 +160,7 @@ func New(config *serial.Config) *Modem {
 	return m
 }
 
+// Close stops communications with the modem.
 func (m *Modem) Close() error {
 	if !m.running {
 		return nil
@@ -162,6 +169,7 @@ func (m *Modem) Close() error {
 	return m.port.Close()
 }
 
+// Run starts communications with the modem.
 func (m *Modem) Run() error {
 	var (
 		err  error

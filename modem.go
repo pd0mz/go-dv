@@ -7,24 +7,24 @@ const (
 	ModeSystemFusion
 )
 
-// ModemDataFunc is the callback function for receiving D-Star headers and data, DMR data or System Fusion data
+// ModemDataFunc is the callback function for receiving D-Star headers and data, DMR data or System Fusion data.
 type ModemDataFunc func(Modem, []byte) error
 
-// Modem describes the interface for digital voice modems
+// Modem describes the interface for digital voice modems.
 type Modem interface {
-	// Modes reports what modes are supported by the modem
+	// Modes reports what modes are supported by the modem.
 	Modes() uint8
 
-	// Close stops communications with the modem
+	// Close stops communications with the modem.
 	Close() error
 
-	// Run starts communications with the modem
+	// Run starts communications with the modem.
 	Run() error
 
-	// Version returns the modem version
+	// Version returns the modem version.
 	Version() int
 
-	// Functions to update modem callbacks
+	// Functions to update modem callbacks.
 	SetDStarHeaderFunc(ModemDataFunc)
 	SetDStarDataFunc(ModemDataFunc)
 	SetDMRDataFunc(ModemDataFunc)
