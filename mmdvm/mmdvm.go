@@ -94,6 +94,13 @@ var (
 // The package logger.
 var logger *log.Logger
 
+// Modes.
+const (
+	ModeDStar uint8 = 1 << iota
+	ModeDMR
+	ModeSystemFusion
+)
+
 // States.
 const (
 	StateIdle uint8 = iota
@@ -171,8 +178,8 @@ func (m *Modem) Close() error {
 	return m.port.Close()
 }
 
-// Run starts communications with the modem.
-func (m *Modem) Run() error {
+// Sync starts communications with the modem.
+func (m *Modem) Sync() error {
 	var (
 		err  error
 		data []byte
@@ -184,10 +191,14 @@ func (m *Modem) Run() error {
 		return err
 	}
 
+	logger.Println("syncing modem")
 	// First we have to sync the modem, so we'll keep reading until we get an answer for our Get Version inquiry
 	if _, err = m.port.Write([]byte{FrameStart, 0x03, GetVersion}); err != nil {
 		return err
 	}
+
+	// Give the modem some slack to send the response.
+	time.Sleep(time.Millisecond * 250)
 
 	// Create a small buffer that fits the frame start, size and response byte
 	data = make([]byte, 3)
@@ -219,6 +230,16 @@ func (m *Modem) Run() error {
 	if m.version != 0x01 {
 		return fmt.Errorf("mmdvm: unsupported protocol version %d", m.version)
 	}
+	logger.Printf("modem %s version %d\n", string(data[1:]), m.version)
+	return nil
+}
+
+// Run starts communications with the modem.
+func (m *Modem) Run() error {
+	var (
+		err  error
+		data []byte
+	)
 
 	// Start receive loop
 	m.running = true
@@ -228,7 +249,6 @@ func (m *Modem) Run() error {
 		if _, err = m.port.Read(data); err != nil {
 			return err
 		}
-
 		if data[0] != FrameStart {
 			return m.errUnexpected(data[0], FrameStart)
 		}

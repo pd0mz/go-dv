@@ -18,6 +18,9 @@ type Modem interface {
 	// Close stops communications with the modem.
 	Close() error
 
+	// Sync starts communications with the modem.
+	Sync() error
+
 	// Run starts communications with the modem.
 	Run() error
 
